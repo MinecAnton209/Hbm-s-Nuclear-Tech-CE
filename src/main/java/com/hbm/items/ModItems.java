@@ -1411,6 +1411,7 @@ public class ModItems {
     public static final Item coin_worm = new ItemCustomLore("coin_worm").setRarity(EnumRarity.UNCOMMON).setCreativeTab(MainRegistry.consumableTab);
     public static final Item coin_ufo = new ItemCustomLore("coin_ufo").setRarity(EnumRarity.UNCOMMON).setCreativeTab(MainRegistry.consumableTab);
     public static final Item coin_siege = new ItemSiegeCoin("coin_siege").setCreativeTab(MainRegistry.consumableTab);
+    public static final Item coin_token = new ItemBakedBase("coin_token").setCreativeTab(MainRegistry.consumableTab);
     public static final Item pudding = new ItemLemon(6, 15, false, "pudding").setCreativeTab(MainRegistry.consumableTab);
     public static final Item can_empty = new ItemBase("can_empty").setCreativeTab(MainRegistry.consumableTab);
     public static final Item can_smart = new ItemEnergy("can_smart").setContainerItem(ModItems.can_empty).setCreativeTab(MainRegistry.consumableTab);
