@@ -310,8 +310,10 @@ public class ParseMSES1 implements IParse {
     public String substitute(ParseContext ctx, String statement) {
         if (!statement.contains("$")) return statement;
 
+        statement = "¤" + statement + "¤";
+
         String[] frags = statement.split("\\$");
-        if (frags.length % 2 == 0 || frags.length < 3) return statement;
+        if (frags.length % 2 == 0 || frags.length < 3) return statement.substring(1, statement.length() - 1);
 
         // since var names are enclosed with $ signs, we assume that every evenly numbered fragment is a var name
         // example: 5 + $val1$ * $val2$ / (-$val3$)
@@ -323,7 +325,8 @@ public class ParseMSES1 implements IParse {
             else frags[i] = ctx.variables.getString(frags[i]);
         }
 
-        return String.join("", frags);
+        String ret = String.join("", frags);
+        return ret.substring(1, ret.length() - 1);
     }
 
     @Override
