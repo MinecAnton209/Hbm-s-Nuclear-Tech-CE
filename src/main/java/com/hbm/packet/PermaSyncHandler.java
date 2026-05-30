@@ -1,11 +1,9 @@
 package com.hbm.packet;
 
-import com.hbm.handler.ImpactWorldHandler;
 import com.hbm.handler.pollution.PollutionHandler;
 import com.hbm.handler.pollution.PollutionHandler.PollutionData;
 import com.hbm.handler.pollution.PollutionHandler.PollutionType;
 import com.hbm.potion.HbmPotion;
-import com.hbm.saveddata.TomSaveData;
 import com.hbm.saveddata.satellites.Satellite;
 import com.hbm.saveddata.satellites.SatelliteSavedData;
 import io.netty.buffer.ByteBuf;
@@ -16,107 +14,204 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
 
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Utility for permanently synchronizing values every tick with a player in the given context of a world.
  * Uses the Byte Buffer directly instead of NBT to cut back on unnecessary data.
  * @author hbm
  */
 public class PermaSyncHandler {
-	
-	public static IntOpenHashSet boykissers = new IntOpenHashSet();
-	public static float[] pollution = new float[PollutionType.VALUES.length];
 
-	public static void writePacket(ByteBuf buf, World world, EntityPlayerMP player) {
-		
-		/// TOM IMPACT DATA ///
-		TomSaveData data = TomSaveData.forWorld(world);
-		buf.writeFloat(data.fire);
-		buf.writeFloat(data.dust);
-		buf.writeBoolean(data.impact);
-		buf.writeLong(data.time);
-		/// TOM IMPACT DATA ///
-		
-		/// SHITTY MEMES ///
-		IntArrayList ids = new IntArrayList();
-		for(EntityPlayer p : world.playerEntities) {
-            if(p.isPotionActive(HbmPotion.death)) {
-				ids.add(p.getEntityId());
-			}
-		}
-		buf.writeShort((short) ids.size());
-        IntListIterator iterator = ids.iterator();
-        while (iterator.hasNext()) {
-            int id = iterator.nextInt();
-            buf.writeInt(id);
+    // Versioned packet format
+    private static final byte PERMA_SYNC_VERSION = 1;
+    private static final byte FLAG_DEATH      = 1;
+    private static final byte FLAG_POLLUTION  = 2;
+    private static final byte FLAG_SATELLITES = 4;
+    private static final byte FLAG_RIDING     = 8;
+
+    // Client-side state (read from readPacket on client)
+    public static IntOpenHashSet boykissers = new IntOpenHashSet();
+    public static float[] pollution = new float[PollutionType.VALUES.length];
+
+    // Thread-safe world-global cache (volatile for safe publication from world tick thread)
+    private static volatile CacheSnapshot cache = CacheSnapshot.EMPTY;
+
+    private record CacheSnapshot(IntArrayList deathPlayerIds, int deathHash, long satHash) {
+        static final CacheSnapshot EMPTY = new CacheSnapshot(new IntArrayList(), 0, 0);
+    }
+
+    // Per-player sync state
+    private static final ConcurrentHashMap<UUID, PlayerSyncState> playerStates = new ConcurrentHashMap<>();
+
+    private static class PlayerSyncState {
+        int deathTicks;
+        int pollTicks;
+        int satTicks;
+        int rideTicks;
+        int lastDeathHash;
+        long lastSatHash;
+        int lastRidingId;
+
+        PlayerSyncState(int entityId) {
+            deathTicks = Math.abs(entityId) % 20;
+            pollTicks  = Math.abs(entityId) % 5;
+            satTicks   = Math.abs(entityId) % 100;
+            rideTicks  = Math.abs(entityId) % 20;
+            lastRidingId = -1;
         }
+    }
+
+    public static void tickCache(World world) {
+
         /// SHITTY MEMES ///
-
-		/// POLLUTION ///
-		PollutionData pollution = PollutionHandler.getPollutionData(world, player.getPosition());
-		if(pollution == null) pollution = new PollutionData();
-		for(int i = 0; i < PollutionType.VALUES.length; i++) {
-			buf.writeFloat(pollution.pollution[i]);
-		}
-		/// POLLUTION ///
-
-		/// SATELLITES ///
-		// Only syncs data required for rendering satellites on the client
-		Int2ObjectOpenHashMap<Satellite> sats = SatelliteSavedData.getData(world).sats;
-		buf.writeInt(sats.size());
-        ObjectIterator<Int2ObjectMap.Entry<Satellite>> iter = sats.int2ObjectEntrySet().fastIterator();
-        while (iter.hasNext()) {
-            Int2ObjectMap.Entry<Satellite> entry = iter.next();
-            buf.writeInt(entry.getIntKey());
-            buf.writeInt(entry.getValue().getID());
+        IntArrayList ids = new IntArrayList();
+        for(EntityPlayer p : world.playerEntities) {
+            if(p.isPotionActive(HbmPotion.death)) {
+                ids.add(p.getEntityId());
+            }
         }
+        int deathHash = ids.hashCode();
+
         /// SATELLITES ///
+        Int2ObjectOpenHashMap<Satellite> sats = SatelliteSavedData.getData(world).sats;
+        long satHash = 0;
+        ObjectIterator<Int2ObjectMap.Entry<Satellite>> iter = sats.int2ObjectEntrySet().fastIterator();
+        while(iter.hasNext()) {
+            Int2ObjectMap.Entry<Satellite> entry = iter.next();
+            satHash = 31 * satHash + entry.getIntKey();
+            satHash = 31 * satHash + entry.getValue().getID();
+        }
 
-		/// RIDING DESYNC FIX ///
-		if(player.getRidingEntity() != null) {
-			buf.writeInt(player.getRidingEntity().getEntityId());
-		} else {
-			buf.writeInt(-1);
-		}
-		/// RIDING DESYNC FIX ///
-	}
-	
-	public static void readPacket(ByteBuf buf, World world, EntityPlayer player) {
+        cache = new CacheSnapshot(ids, deathHash, satHash);
+    }
 
-		/// TOM IMPACT DATA ///
-		ImpactWorldHandler.lastSyncWorld = player.world;
-		ImpactWorldHandler.fire = buf.readFloat();
-		ImpactWorldHandler.dust = buf.readFloat();
-		ImpactWorldHandler.impact = buf.readBoolean();
-		ImpactWorldHandler.time = buf.readLong();
-		/// TOM IMPACT DATA ///
+    public static void writePacket(ByteBuf buf, World world, EntityPlayerMP player) {
+        UUID uuid = player.getUniqueID();
+        PlayerSyncState state = playerStates.get(uuid);
+        boolean isNew = false;
+        if(state == null) {
+            state = new PlayerSyncState(player.getEntityId());
+            playerStates.put(uuid, state);
+            isNew = true;
+        }
 
-		/// SHITTY MEMES ///
-		boykissers.clear();
-		int ids = buf.readShort();
-		for(int i = 0; i < ids; i++) boykissers.add(buf.readInt());
-		/// SHITTY MEMES ///
+        int verIndex = buf.writerIndex();
+        buf.writeByte(PERMA_SYNC_VERSION);
+        int lenIndex = buf.writerIndex();
+        buf.writeShort(0);
+        int flagsIndex = buf.writerIndex();
+        buf.writeByte(0);
 
-		/// POLLUTION ///
-		for(int i = 0; i < PollutionType.VALUES.length; i++) {
-			pollution[i] = buf.readFloat();
-		}
-		/// POLLUTION ///
+        byte flags = 0;
+        int startIndex = buf.writerIndex();
 
-		/// SATELLITES ///
-		int satSize = buf.readInt();
-		Int2ObjectOpenHashMap<Satellite> sats = new Int2ObjectOpenHashMap<>();
-		for(int i = 0; i < satSize; i++) {
-			sats.put(buf.readInt(), Satellite.create(buf.readInt()));
-		}
-		SatelliteSavedData.setClientSats(sats);
-		/// SATELLITES ///
+        /// SHITTY MEMES ///
+        CacheSnapshot snap = cache;
+        if(isNew || state.deathTicks >= 20 || state.lastDeathHash != snap.deathHash) {
+            flags |= FLAG_DEATH;
+            state.lastDeathHash = snap.deathHash;
+            state.deathTicks = 0;
+            IntArrayList ids = snap.deathPlayerIds;
+            buf.writeShort((short) ids.size());
+            IntListIterator it = ids.iterator();
+            while(it.hasNext()) {
+                buf.writeInt(it.nextInt());
+            }
+        }
+        state.deathTicks++;
 
-		/// RIDING DESYNC FIX ///
-		int ridingId = buf.readInt();
-		if(ridingId >= 0 && player.getRidingEntity() == null) {
-			Entity entity = world.getEntityByID(ridingId);
-			player.startRiding(entity);
-		}
-		/// RIDING DESYNC FIX ///
-	}
+        /// POLLUTION ///
+        if(isNew || state.pollTicks >= 5) {
+            flags |= FLAG_POLLUTION;
+            state.pollTicks = 0;
+            PollutionData pd = PollutionHandler.getPollutionData(world, player.getPosition());
+            if(pd == null) pd = new PollutionData();
+            for(int i = 0; i < PollutionType.VALUES.length; i++) {
+                buf.writeFloat(pd.pollution[i]);
+            }
+        }
+        state.pollTicks++;
+
+        /// SATELLITES ///
+        if(isNew || state.satTicks >= 100 || state.lastSatHash != snap.satHash) {
+            flags |= FLAG_SATELLITES;
+            state.lastSatHash = snap.satHash;
+            state.satTicks = 0;
+            Int2ObjectOpenHashMap<Satellite> sats = SatelliteSavedData.getData(world).sats;
+            buf.writeInt(sats.size());
+            ObjectIterator<Int2ObjectMap.Entry<Satellite>> sit = sats.int2ObjectEntrySet().fastIterator();
+            while(sit.hasNext()) {
+                Int2ObjectMap.Entry<Satellite> entry = sit.next();
+                buf.writeInt(entry.getIntKey());
+                buf.writeInt(entry.getValue().getID());
+            }
+        }
+        state.satTicks++;
+
+        /// RIDING DESYNC FIX ///
+        int ridingId = player.getRidingEntity() != null ? player.getRidingEntity().getEntityId() : -1;
+        if(isNew || state.rideTicks >= 20 || state.lastRidingId != ridingId) {
+            flags |= FLAG_RIDING;
+            state.lastRidingId = ridingId;
+            state.rideTicks = 0;
+            buf.writeInt(ridingId);
+        }
+        state.rideTicks++;
+
+        int endIndex = buf.writerIndex();
+
+        buf.setByte(verIndex, PERMA_SYNC_VERSION);
+        buf.setShort(lenIndex, endIndex - startIndex);
+        buf.setByte(flagsIndex, flags);
+    }
+
+    public static void readPacket(ByteBuf buf, World world, EntityPlayer player) {
+        int version = buf.readByte();
+        if(version != PERMA_SYNC_VERSION) {
+            return;
+        }
+        int sectionLength = buf.readUnsignedShort();
+        int endIndex = buf.readerIndex() + sectionLength;
+
+        byte flags = buf.readByte();
+
+        /// SHITTY MEMES ///
+        if((flags & FLAG_DEATH) != 0) {
+            boykissers.clear();
+            int count = buf.readShort();
+            for(int i = 0; i < count; i++) {
+                boykissers.add(buf.readInt());
+            }
+        }
+
+        /// POLLUTION ///
+        if((flags & FLAG_POLLUTION) != 0) {
+            for(int i = 0; i < PollutionType.VALUES.length; i++) {
+                pollution[i] = buf.readFloat();
+            }
+        }
+
+        /// SATELLITES ///
+        if((flags & FLAG_SATELLITES) != 0) {
+            int satSize = buf.readInt();
+            Int2ObjectOpenHashMap<Satellite> sats = new Int2ObjectOpenHashMap<>();
+            for(int i = 0; i < satSize; i++) {
+                sats.put(buf.readInt(), Satellite.create(buf.readInt()));
+            }
+            SatelliteSavedData.setClientSats(sats);
+        }
+
+        /// RIDING DESYNC FIX ///
+        if((flags & FLAG_RIDING) != 0) {
+            int ridingId = buf.readInt();
+            if(ridingId >= 0 && player.getRidingEntity() == null) {
+                Entity entity = world.getEntityByID(ridingId);
+                player.startRiding(entity);
+            }
+        }
+
+        buf.readerIndex(Math.min(endIndex, buf.writerIndex()));
+    }
 }
