@@ -13,7 +13,6 @@ import com.hbm.entity.mob.EntityRADBeast;
 import com.hbm.handler.HbmKeybinds.EnumKeybind;
 import com.hbm.handler.pollution.PollutionHandler;
 import com.hbm.handler.radiation.ChunkRadiationManager;
-import com.hbm.handler.threading.PacketThreading;
 import com.hbm.interfaces.IArmorModDash;
 import com.hbm.interfaces.Untested;
 import com.hbm.items.gear.ArmorFSB;
@@ -23,7 +22,9 @@ import com.hbm.lib.ModDamageSource;
 import com.hbm.main.AdvancementManager;
 import com.hbm.main.MainRegistry;
 import com.hbm.packet.toclient.AuxParticlePacketNT;
-import com.hbm.packet.toclient.HbmPlayerSyncPacket;
+import com.hbm.packet.HbmSyncHandler;
+import com.hbm.packet.threading.ThreadedPacket;
+import com.hbm.handler.threading.PacketThreading;
 import com.hbm.particle.helper.FlameCreator;
 import com.hbm.particle.helper.HbmEffectNT;
 import com.hbm.potion.HbmPotion;
@@ -104,8 +105,11 @@ public class EntityEffectHandler {
 				if(cap.getShield() > cap.getEffectiveMaxShield(playerMP))
 					cap.setShield(cap.getEffectiveMaxShield(playerMP));
 
-				IEntityHbmProps props = HbmLivingProps.getData(entity);
-				PacketThreading.createSendToThreadedPacket(new HbmPlayerSyncPacket(props, cap), playerMP);
+				byte flags = HbmSyncHandler.computeFlags(playerMP);
+				if(flags != 0) {
+					ThreadedPacket pkt = new com.hbm.packet.toclient.HbmPlayerSyncPacket(playerMP, flags);
+					PacketThreading.createSendToThreadedPacket(pkt, playerMP);
+				}
 			}
 		} else {
             if(entity == MainRegistry.proxy.me()) {

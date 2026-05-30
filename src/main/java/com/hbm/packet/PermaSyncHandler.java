@@ -46,21 +46,9 @@ public class PermaSyncHandler {
     private static final ConcurrentHashMap<UUID, PlayerSyncState> playerStates = new ConcurrentHashMap<>();
 
     private static class PlayerSyncState {
-        int deathTicks;
-        int pollTicks;
-        int satTicks;
-        int rideTicks;
         int lastDeathHash;
         long lastSatHash;
         int lastRidingId;
-
-        PlayerSyncState(int entityId) {
-            deathTicks = Math.abs(entityId) % 20;
-            pollTicks  = Math.abs(entityId) % 5;
-            satTicks   = Math.abs(entityId) % 100;
-            rideTicks  = Math.abs(entityId) % 20;
-            lastRidingId = -1;
-        }
     }
 
     public static void tickCache(World world) {
@@ -87,12 +75,30 @@ public class PermaSyncHandler {
         cache = new CacheSnapshot(ids, deathHash, satHash);
     }
 
+    public static boolean shouldSend(EntityPlayerMP player) {
+        UUID uuid = player.getUniqueID();
+        PlayerSyncState state = playerStates.get(uuid);
+        if(state == null) return true;
+
+        CacheSnapshot snap = cache;
+        int offset = Math.abs(player.getEntityId());
+        int tick = player.ticksExisted + offset;
+
+        if(tick % 20 == 0 || state.lastDeathHash != snap.deathHash) return true;
+        if(tick % 5 == 0) return true;
+        if(tick % 100 == 0 || state.lastSatHash != snap.satHash) return true;
+        int ridingId = player.getRidingEntity() != null ? player.getRidingEntity().getEntityId() : -1;
+        if(tick % 20 == 0 || state.lastRidingId != ridingId) return true;
+
+        return false;
+    }
+
     public static void writePacket(ByteBuf buf, World world, EntityPlayerMP player) {
         UUID uuid = player.getUniqueID();
         PlayerSyncState state = playerStates.get(uuid);
         boolean isNew = false;
         if(state == null) {
-            state = new PlayerSyncState(player.getEntityId());
+            state = new PlayerSyncState();
             playerStates.put(uuid, state);
             isNew = true;
         }
@@ -107,12 +113,14 @@ public class PermaSyncHandler {
         byte flags = 0;
         int startIndex = buf.writerIndex();
 
+        int offset = Math.abs(player.getEntityId());
+        int tick = player.ticksExisted + offset;
+
         /// SHITTY MEMES ///
         CacheSnapshot snap = cache;
-        if(isNew || state.deathTicks >= 20 || state.lastDeathHash != snap.deathHash) {
+        if(isNew || tick % 20 == 0 || state.lastDeathHash != snap.deathHash) {
             flags |= FLAG_DEATH;
             state.lastDeathHash = snap.deathHash;
-            state.deathTicks = 0;
             IntArrayList ids = snap.deathPlayerIds;
             buf.writeShort((short) ids.size());
             IntListIterator it = ids.iterator();
@@ -120,25 +128,21 @@ public class PermaSyncHandler {
                 buf.writeInt(it.nextInt());
             }
         }
-        state.deathTicks++;
 
         /// POLLUTION ///
-        if(isNew || state.pollTicks >= 5) {
+        if(isNew || tick % 5 == 0) {
             flags |= FLAG_POLLUTION;
-            state.pollTicks = 0;
             PollutionData pd = PollutionHandler.getPollutionData(world, player.getPosition());
             if(pd == null) pd = new PollutionData();
             for(int i = 0; i < PollutionType.VALUES.length; i++) {
                 buf.writeFloat(pd.pollution[i]);
             }
         }
-        state.pollTicks++;
 
         /// SATELLITES ///
-        if(isNew || state.satTicks >= 100 || state.lastSatHash != snap.satHash) {
+        if(isNew || tick % 100 == 0 || state.lastSatHash != snap.satHash) {
             flags |= FLAG_SATELLITES;
             state.lastSatHash = snap.satHash;
-            state.satTicks = 0;
             Int2ObjectOpenHashMap<Satellite> sats = SatelliteSavedData.getData(world).sats;
             buf.writeInt(sats.size());
             ObjectIterator<Int2ObjectMap.Entry<Satellite>> sit = sats.int2ObjectEntrySet().fastIterator();
@@ -148,17 +152,14 @@ public class PermaSyncHandler {
                 buf.writeInt(entry.getValue().getID());
             }
         }
-        state.satTicks++;
 
         /// RIDING DESYNC FIX ///
         int ridingId = player.getRidingEntity() != null ? player.getRidingEntity().getEntityId() : -1;
-        if(isNew || state.rideTicks >= 20 || state.lastRidingId != ridingId) {
+        if(isNew || tick % 20 == 0 || state.lastRidingId != ridingId) {
             flags |= FLAG_RIDING;
             state.lastRidingId = ridingId;
-            state.rideTicks = 0;
             buf.writeInt(ridingId);
         }
-        state.rideTicks++;
 
         int endIndex = buf.writerIndex();
 
@@ -169,9 +170,8 @@ public class PermaSyncHandler {
 
     public static void readPacket(ByteBuf buf, World world, EntityPlayer player) {
         int version = buf.readByte();
-        if(version != PERMA_SYNC_VERSION) {
-            return;
-        }
+        if(version != PERMA_SYNC_VERSION) return;
+
         int sectionLength = buf.readUnsignedShort();
         int endIndex = buf.readerIndex() + sectionLength;
 
@@ -180,7 +180,7 @@ public class PermaSyncHandler {
         /// SHITTY MEMES ///
         if((flags & FLAG_DEATH) != 0) {
             boykissers.clear();
-            int count = buf.readShort();
+            int count = buf.readUnsignedShort();
             for(int i = 0; i < count; i++) {
                 boykissers.add(buf.readInt());
             }
@@ -193,6 +193,8 @@ public class PermaSyncHandler {
             }
         }
 
+        if(buf.readerIndex() >= endIndex) return;
+
         /// SATELLITES ///
         if((flags & FLAG_SATELLITES) != 0) {
             int satSize = buf.readInt();
@@ -202,6 +204,8 @@ public class PermaSyncHandler {
             }
             SatelliteSavedData.setClientSats(sats);
         }
+
+        if(buf.readerIndex() >= endIndex) return;
 
         /// RIDING DESYNC FIX ///
         if((flags & FLAG_RIDING) != 0) {

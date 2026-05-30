@@ -926,7 +926,8 @@ public class ModEventHandler {
             /// PU RADIATION END ///
 
             /// SYNC START ///
-            if(!player.world.isRemote && player instanceof EntityPlayerMP playerMP) PacketThreading.createSendToThreadedPacket(new PermaSyncPacket(playerMP), playerMP);
+            if(!player.world.isRemote && player instanceof EntityPlayerMP playerMP && PermaSyncHandler.shouldSend(playerMP))
+                PacketThreading.createSendToThreadedPacket(new PermaSyncPacket(playerMP), playerMP);
             /// SYNC END ///
         }
         // Alcater addition on June 2023

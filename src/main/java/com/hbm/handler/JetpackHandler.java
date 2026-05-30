@@ -318,7 +318,10 @@ public class JetpackHandler {
 					setTank(player, tank);
 				}
 				if(player.motionY > -0.5) player.fallDistance = 0;
-				PacketThreading.createSendToAllTrackingThreadedPacket(new JetpackSyncPacket(player), player);
+				if(info.dirty) {
+					info.dirty = false;
+					PacketThreading.createSendToAllTrackingThreadedPacket(new JetpackSyncPacket(player), player);
+				}
 			}
 		}
 	}
