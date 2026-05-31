@@ -61,9 +61,7 @@ public class RenderFoundryChannel extends TileEntitySpecialRenderer<TileEntityFo
 		double level = interpFrac * maxLevel;
 
 		double droop = MathHelper.sin((float) (interpFrac * Math.PI)) * 0.03F;
-		double centerLevel = Math.max(0, level - droop);
-		double edgeLevel = Math.min(maxLevel, level);
-		double connLevel = (centerLevel + edgeLevel) * 0.5;
+		double baseY = 0.125D + level;
 
 		bindTexture(LAVA_TEXTURE);
 
@@ -79,19 +77,19 @@ public class RenderFoundryChannel extends TileEntitySpecialRenderer<TileEntityFo
 		buffer.begin(7, DefaultVertexFormats.POSITION_TEX);
 
 		if (channel.canConnectTo(world, pos, EnumFacing.EAST)) { // +X
-			renderLiquid(buffer, 0.625D, 0.125D, 0.3125D, 1D, 0.125D + connLevel, 0.6875D);
+			renderSloped(buffer, 0.625D, 0.3125D, 1D, 0.6875D, baseY, droop);
 		}
 		if (channel.canConnectTo(world, pos, EnumFacing.WEST)) { // -X
-			renderLiquid(buffer, 0D, 0.125D, 0.3125D, 0.375D, 0.125D + connLevel, 0.6875D);
+			renderSloped(buffer, 0D, 0.3125D, 0.375D, 0.6875D, baseY, droop);
 		}
 		if (channel.canConnectTo(world, pos, EnumFacing.SOUTH)) { // +Z
-			renderLiquid(buffer, 0.3125D, 0.125D, 0.625D, 0.6875D, 0.125D + connLevel, 1D);
+			renderSloped(buffer, 0.3125D, 0.625D, 0.6875D, 1D, baseY, droop);
 		}
 		if (channel.canConnectTo(world, pos, EnumFacing.NORTH)) { // -Z
-			renderLiquid(buffer, 0.3125D, 0.125D, 0D, 0.6875D, 0.125D + connLevel, 0.375D);
+			renderSloped(buffer, 0.3125D, 0D, 0.6875D, 0.375D, baseY, droop);
 		}
 
-		renderLiquid(buffer, 0.375D, 0.125D, 0.375D, 0.625D, 0.125D + centerLevel, 0.625D);
+		renderSloped(buffer, 0.375D, 0.375D, 0.625D, 0.625D, baseY, droop);
 
         tessellator.draw();
 
@@ -99,15 +97,27 @@ public class RenderFoundryChannel extends TileEntitySpecialRenderer<TileEntityFo
         GlStateManager.popMatrix();
     }
 
-    private void renderLiquid(BufferBuilder buffer, double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
-        buffer.pos(minX, minY, minZ).tex(0, 0).endVertex();
-        buffer.pos(minX, minY, maxZ).tex(0, 1).endVertex();
-        buffer.pos(maxX, minY, maxZ).tex(1, 1).endVertex();
-        buffer.pos(maxX, minY, minZ).tex(1, 0).endVertex();
+    private static double slopedHeight(double vx, double vz, double baseY, double droop) {
+        double dx = vx - 0.5;
+        double dz = vz - 0.5;
+        return baseY - droop + droop * (dx * dx + dz * dz) * 2;
+    }
 
-        buffer.pos(minX, maxY, minZ).tex(0, 0).endVertex();
-        buffer.pos(minX, maxY, maxZ).tex(0, 1).endVertex();
-        buffer.pos(maxX, maxY, maxZ).tex(1, 1).endVertex();
-        buffer.pos(maxX, maxY, minZ).tex(1, 0).endVertex();
+    private void renderSloped(BufferBuilder buffer, double minX, double minZ, double maxX, double maxZ, double baseY, double droop) {
+        double h1 = slopedHeight(minX, minZ, baseY, droop);
+        double h2 = slopedHeight(minX, maxZ, baseY, droop);
+        double h3 = slopedHeight(maxX, maxZ, baseY, droop);
+        double h4 = slopedHeight(maxX, minZ, baseY, droop);
+        double bottomY = 0.125D;
+
+        buffer.pos(minX, bottomY, minZ).tex(0, 0).endVertex();
+        buffer.pos(minX, bottomY, maxZ).tex(0, 1).endVertex();
+        buffer.pos(maxX, bottomY, maxZ).tex(1, 1).endVertex();
+        buffer.pos(maxX, bottomY, minZ).tex(1, 0).endVertex();
+
+        buffer.pos(minX, h1, minZ).tex(0, 0).endVertex();
+        buffer.pos(minX, h2, maxZ).tex(0, 1).endVertex();
+        buffer.pos(maxX, h3, maxZ).tex(1, 1).endVertex();
+        buffer.pos(maxX, h4, minZ).tex(1, 0).endVertex();
     }
 }

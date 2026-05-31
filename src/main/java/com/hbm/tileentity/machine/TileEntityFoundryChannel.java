@@ -144,7 +144,7 @@ public class TileEntityFoundryChannel extends TileEntityFoundryBase {
 		} else {
 			this.prevRenderAmount = this.renderAmount;
 			if(this.type != null) this.renderType = this.type;
-			if(this.amount > 0 || this.renderAmount > 1) {
+			if(this.amount > 0 || this.renderAmount > 0.1) {
 				this.renderAmount += (this.amount - this.renderAmount) * 0.3;
 			} else {
 				this.renderAmount = 0;
