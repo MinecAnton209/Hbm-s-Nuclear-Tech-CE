@@ -14,7 +14,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-import java.awt.*;
+
 @AutoRegister
 public class RenderFoundryChannel extends TileEntitySpecialRenderer<TileEntityFoundryChannel> {
     public static final ResourceLocation LAVA_TEXTURE = new ResourceLocation(Tags.MODID, "textures/models/machines/lava_gray.png");
@@ -34,16 +34,17 @@ public class RenderFoundryChannel extends TileEntitySpecialRenderer<TileEntityFo
             return;
         }
 
-        Color color = new Color(tile.type.moltenColor).brighter();
-
-        if(color != null) {
-            double brightener = 0.7D;
-            int nr = (int) (255D - (255D - color.getRed()) * brightener);
-            int ng = (int) (255D - (255D - color.getGreen()) * brightener);
-            int nb = (int) (255D - (255D - color.getBlue()) * brightener);
-
-            color = new Color(nr, ng, nb);
-        }
+        int hex = tile.type.moltenColor;
+        double brightener = 0.7D;
+        int rComp = (hex >> 16) & 0xFF;
+        int gComp = (hex >> 8) & 0xFF;
+        int bComp = hex & 0xFF;
+        rComp = Math.min((int) (rComp / 0.7D), 255);
+        gComp = Math.min((int) (gComp / 0.7D), 255);
+        bComp = Math.min((int) (bComp / 0.7D), 255);
+        float nr = (float) (255D - (255D - rComp) * brightener) / 255F;
+        float ng = (float) (255D - (255D - gComp) * brightener) / 255F;
+        float nb = (float) (255D - (255D - bComp) * brightener) / 255F;
 
         double level = tile.amount * 0.25D / tile.getCapacity();
 
@@ -53,7 +54,7 @@ public class RenderFoundryChannel extends TileEntitySpecialRenderer<TileEntityFo
         GlStateManager.translate(x, y, z);
         GlStateManager.disableLighting();
 
-        GlStateManager.color(color.getRed() / 255F, color.getGreen() / 255F, color.getBlue() / 255F, 1.0F);
+        GlStateManager.color(nr, ng, nb, 1.0F);
 
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder buffer = tessellator.getBuffer();
