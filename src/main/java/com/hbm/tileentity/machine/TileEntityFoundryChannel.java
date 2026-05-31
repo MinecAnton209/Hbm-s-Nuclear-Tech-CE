@@ -35,6 +35,10 @@ public class TileEntityFoundryChannel extends TileEntityFoundryBase {
 
 	private static final ForgeDirection[] HORIZONTAL = { ForgeDirection.NORTH, ForgeDirection.SOUTH, ForgeDirection.WEST, ForgeDirection.EAST };
 
+	public double renderAmount;
+	public double prevRenderAmount;
+	public NTMMaterial renderType;
+
 	@Override
 	public void update() {
 		
@@ -137,8 +141,17 @@ public class TileEntityFoundryChannel extends TileEntityFoundryBase {
 			} else {
 				unpropagateTime = 0;
 			}
+		} else {
+			this.prevRenderAmount = this.renderAmount;
+			if(this.type != null) this.renderType = this.type;
+			if(this.amount > 0 || this.renderAmount > 1) {
+				this.renderAmount += (this.amount - this.renderAmount) * 0.3;
+			} else {
+				this.renderAmount = 0;
+				this.renderType = null;
+			}
 		}
-		
+
 		super.update();
 	}
 

@@ -3,6 +3,7 @@ package com.hbm.render.tileentity;
 import com.hbm.Tags;
 import com.hbm.blocks.machine.FoundryChannel;
 import com.hbm.interfaces.AutoRegister;
+import com.hbm.inventory.material.NTMMaterial;
 import com.hbm.tileentity.machine.TileEntityFoundryChannel;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -12,6 +13,7 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 
 
@@ -29,12 +31,13 @@ public class RenderFoundryChannel extends TileEntitySpecialRenderer<TileEntityFo
         World world = tile.getWorld();
         FoundryChannel channel = (FoundryChannel) tile.getBlockType();
 
-        boolean doRender = tile.amount > 0 && tile.type != null;
-        if (!doRender) {
-            return;
-        }
+		boolean doRender = (tile.amount > 0 || tile.renderAmount > 0) && (tile.type != null || tile.renderType != null);
+		if (!doRender) {
+			return;
+		}
 
-        int hex = tile.type.moltenColor;
+		NTMMaterial mat = tile.renderType != null ? tile.renderType : tile.type;
+		int hex = mat.moltenColor;
         double brightener = 0.7D;
         int rComp = (hex >> 16) & 0xFF;
         int gComp = (hex >> 8) & 0xFF;
@@ -46,35 +49,49 @@ public class RenderFoundryChannel extends TileEntitySpecialRenderer<TileEntityFo
         float ng = (float) (255D - (255D - gComp) * brightener) / 255F;
         float nb = (float) (255D - (255D - bComp) * brightener) / 255F;
 
-        double level = tile.amount * 0.25D / tile.getCapacity();
+		double maxLevel = 0.25D;
+		int capacity = tile.getCapacity();
+		if(capacity <= 0) capacity = 1;
 
-        bindTexture(LAVA_TEXTURE);
+		double fraction = (double) tile.renderAmount / capacity;
+		double prevFrac = (double) tile.prevRenderAmount / capacity;
+		double interpFrac = prevFrac + (fraction - prevFrac) * partialTicks;
+		interpFrac = Math.max(0, Math.min(1, interpFrac));
 
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(x, y, z);
-        GlStateManager.disableLighting();
+		double level = interpFrac * maxLevel;
 
-        GlStateManager.color(nr, ng, nb, 1.0F);
+		double droop = MathHelper.sin((float) (interpFrac * Math.PI)) * 0.03F;
+		double centerLevel = Math.max(0, level - droop);
+		double edgeLevel = Math.min(maxLevel, level);
+		double connLevel = (centerLevel + edgeLevel) * 0.5;
 
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.getBuffer();
+		bindTexture(LAVA_TEXTURE);
 
-        buffer.begin(7, DefaultVertexFormats.POSITION_TEX);
+		GlStateManager.pushMatrix();
+		GlStateManager.translate(x, y, z);
+		GlStateManager.disableLighting();
 
-        if (channel.canConnectTo(world, pos, EnumFacing.EAST)) { // +X
-            renderLiquid(buffer, 0.625D, 0.125D, 0.3125D, 1D, 0.125D + level, 0.6875D);
-        }
-        if (channel.canConnectTo(world, pos, EnumFacing.WEST)) { // -X
-            renderLiquid(buffer, 0D, 0.125D, 0.3125D, 0.375D, 0.125D + level, 0.6875D);
-        }
-        if (channel.canConnectTo(world, pos, EnumFacing.SOUTH)) { // +Z
-            renderLiquid(buffer, 0.3125D, 0.125D, 0.625D, 0.6875D, 0.125D + level, 1D);
-        }
-        if (channel.canConnectTo(world, pos, EnumFacing.NORTH)) { // -Z
-            renderLiquid(buffer, 0.3125D, 0.125D, 0D, 0.6875D, 0.125D + level, 0.375D);
-        }
+		GlStateManager.color(nr, ng, nb, 1.0F);
 
-        renderLiquid(buffer, 0.375D, 0.125D, 0.375D, 0.625D, 0.125D + level, 0.625D);
+		Tessellator tessellator = Tessellator.getInstance();
+		BufferBuilder buffer = tessellator.getBuffer();
+
+		buffer.begin(7, DefaultVertexFormats.POSITION_TEX);
+
+		if (channel.canConnectTo(world, pos, EnumFacing.EAST)) { // +X
+			renderLiquid(buffer, 0.625D, 0.125D, 0.3125D, 1D, 0.125D + connLevel, 0.6875D);
+		}
+		if (channel.canConnectTo(world, pos, EnumFacing.WEST)) { // -X
+			renderLiquid(buffer, 0D, 0.125D, 0.3125D, 0.375D, 0.125D + connLevel, 0.6875D);
+		}
+		if (channel.canConnectTo(world, pos, EnumFacing.SOUTH)) { // +Z
+			renderLiquid(buffer, 0.3125D, 0.125D, 0.625D, 0.6875D, 0.125D + connLevel, 1D);
+		}
+		if (channel.canConnectTo(world, pos, EnumFacing.NORTH)) { // -Z
+			renderLiquid(buffer, 0.3125D, 0.125D, 0D, 0.6875D, 0.125D + connLevel, 0.375D);
+		}
+
+		renderLiquid(buffer, 0.375D, 0.125D, 0.375D, 0.625D, 0.125D + centerLevel, 0.625D);
 
         tessellator.draw();
 
