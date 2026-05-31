@@ -21,6 +21,7 @@ import com.hbm.util.BobMathUtil;
 import com.hbm.util.Compat;
 import com.hbm.util.I18nUtil;
 import com.hbm.util.UnlistedPropertyInteger;
+import io.netty.buffer.ByteBuf;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.BlockDirectional;
 import net.minecraft.block.material.Material;
@@ -275,6 +276,20 @@ public class CableDiode extends BlockContainer implements IEnergyConnectorBlock,
             nbt.setInteger("level", level);
             nbt.setByte("p", (byte) this.priority.ordinal());
             return super.writeToNBT(nbt);
+        }
+
+        @Override
+        public void deserialize(ByteBuf buf) {
+            super.deserialize(buf);
+            level = buf.readInt();
+            priority = ConnectionPriority.values()[buf.readByte()];
+        }
+
+        @Override
+        public void serialize(ByteBuf buf) {
+            super.serialize(buf);
+            buf.writeInt(level);
+            buf.writeByte((byte)this.priority.ordinal());
         }
 
         private ForgeDirection getDir() {
