@@ -161,12 +161,16 @@ public class PermaSyncHandler {
             buf.writeInt(ridingId);
         }
 
-        int endIndex = buf.writerIndex();
+		int endIndex = buf.writerIndex();
 
-        buf.setByte(verIndex, PERMA_SYNC_VERSION);
-        buf.setShort(lenIndex, endIndex - startIndex);
-        buf.setByte(flagsIndex, flags);
-    }
+		buf.setByte(verIndex, PERMA_SYNC_VERSION);
+		buf.setShort(lenIndex, endIndex - startIndex);
+		buf.setByte(flagsIndex, flags);
+
+		// Reserved byte for forward compat — not included in sectionLength, so readPacket
+		// leaves it for afterReadPacket / future-version mixin callbacks.
+		buf.writeByte(0);
+	}
 
     public static void readPacket(ByteBuf buf, World world, EntityPlayer player) {
         int version = buf.readByte();
