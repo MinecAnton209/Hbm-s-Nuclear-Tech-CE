@@ -326,7 +326,22 @@ public class HbmWorldGen implements IWorldGenerator {
         if (dimBedrockOilFreq > 0 && rand.nextInt(dimBedrockOilFreq) == 0) {
             int randPosX = chunkMinX + rand.nextInt(16);
             int randPosZ = chunkMinZ + rand.nextInt(16);
-            BedrockOilDeposit.generate(world, randPosX, randPosZ);
+
+            for (int x = -4; x <= 4; x++) {
+                for (int y = 0; y <= 4; y++) {
+                    for (int z = -4; z <= 4; z++) {
+                        if (Math.abs(x) + Math.abs(y) + Math.abs(z) <= 6) {
+                            BlockPos pos = new BlockPos(randPosX + x, y, randPosZ + z);
+                            if (world.getBlockState(pos).getBlock() == Blocks.BEDROCK) {
+                                world.setBlockState(pos, ModBlocks.ore_bedrock_oil.getDefaultState());
+                            }
+                        }
+                    }
+                }
+            }
+
+            DungeonToolbox.generateOre(world, rand, chunkMinX, chunkMinZ, 16, 8, 10, 50, ModBlocks.stone_porous);
+            OilSpot.generateOilSpot(world, randPosX, randPosZ, 5, 50, true);
         }
     }
 
