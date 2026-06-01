@@ -44,6 +44,10 @@ public class BombConfig {
 	public static int explosionAlgorithm = 2;
 	public static int maxThreads = -1;
     public static boolean safeCommit = false;
+    public static int maxCloudlets = 8_000;
+    public static int cloudletUpdateDivisor = 3;
+    public static double explosionResolutionFactor = 0.75;
+    public static int reserveCores = 1;
 	
 	public static void loadFromConfig(Configuration config) {
 		Property propGadget = config.get(CommonConfig.CATEGORY_NUKES, "3.00_gadgetRadius", 150);
@@ -180,5 +184,21 @@ public class BombConfig {
         Property safeCommitP = config.get(CommonConfig.CATEGORY_EXPLOSIONS, "6.11.2_safeCommit", false);
         safeCommitP.setComment("Prefer safety over performance(~30% slower). Affects algorithm 1, 2, and fallout rain effect.");
         safeCommit = safeCommitP.getBoolean();
+
+        Property maxCloudletsP = config.get(CommonConfig.CATEGORY_EXPLOSIONS, "6.12_maxCloudlets", 8_000);
+        maxCloudletsP.setComment("Max cloudlet particles for mushroom cloud. Lower = better FPS. Default 8000. Set to 0 to use old default (20000).");
+        maxCloudlets = maxCloudletsP.getInt();
+
+        Property cloudletUpdateDivisorP = config.get(CommonConfig.CATEGORY_EXPLOSIONS, "6.13_cloudletUpdateDivisor", 3);
+        cloudletUpdateDivisorP.setComment("Update 1/N of cloudlets per tick. 1 = update all, 3 = update 1/3. Higher = less CPU, choppier motion. Default 3.");
+        cloudletUpdateDivisor = Math.max(1, cloudletUpdateDivisorP.getInt());
+
+        Property explosionResolutionFactorP = config.get(CommonConfig.CATEGORY_EXPLOSIONS, "6.14_explosionResolutionFactor", 0.75);
+        explosionResolutionFactorP.setComment("Ray multiplier for MK5 explosions. 1.0 = full resolution, 0.75 = 25% fewer rays. Lower = faster, less accurate. Default 0.75.");
+        explosionResolutionFactor = Math.max(0.1, Math.min(1.0, explosionResolutionFactorP.getDouble()));
+
+        Property reserveCoresP = config.get(CommonConfig.CATEGORY_EXPLOSIONS, "6.15_reserveCores", 1);
+        reserveCoresP.setComment("How many CPU cores to leave free for the server tick during explosion calculation. 0 = use all cores. Default 1.");
+        reserveCores = Math.max(0, reserveCoresP.getInt());
 	}
 }

@@ -26,7 +26,10 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.fml.client.registry.IRenderFactory;
 import org.lwjgl.opengl.GL11;
 
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.util.math.AxisAlignedBB;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Random;
 
@@ -46,6 +49,7 @@ public class RenderTorex extends Render<EntityNukeTorex> {
 	public static final int flareBaseDuration = 100;
 	private static final InstancedBillboardBatch INSTANCED_CLOUDLET_BATCH = new InstancedBillboardBatch();
     private static final float ONE_THIRD = 1F / 3F;
+    private static final Frustum FRUSTUM = new Frustum();
 
 	protected RenderTorex(RenderManager renderManager){
 		super(renderManager);
@@ -296,12 +300,16 @@ public class RenderTorex extends Render<EntityNukeTorex> {
         long writeAddress = NTMBufferBuilder.address(raw.getByteBuffer());
         float cloudAlphaBase = getCloudAlphaBase(cloud);
 
+        int written = 0;
         for (int i = 0; i < cloudletCount; i++) {
-            writeCloudlet(writeAddress, cloud.cloudlets.get(i), cloud, partialTicks, cloudAlphaBase,
+            Cloudlet cloudlet = cloud.cloudlets.get(i);
+            if(!cloudlet.visible) continue;
+            writeCloudlet(writeAddress, cloudlet, cloud, partialTicks, cloudAlphaBase,
                     rotationX, rotationZ, rotationYZ, rotationXY, rotationXZ);
             writeAddress += NTMBufferBuilder.PARTICLE_POSITION_TEX_COLOR_LMAP_QUAD_BYTES;
+            written++;
         }
-        ((NTMBufferBuilder) raw).setVertexCount(cloudletCount << 2);
+        ((NTMBufferBuilder) raw).setVertexCount(written << 2);
 
         NTMImmediate.INSTANCE.draw();
 
@@ -333,13 +341,18 @@ public class RenderTorex extends Render<EntityNukeTorex> {
 			GlStateManager.popMatrix();
 			return;
 		}
-		ByteBuffer instancedCloudletBuffer = INSTANCED_CLOUDLET_BATCH.begin(cloudletCount);
+		int visibleCount = 0;
 		for(Cloudlet cloudlet : cloud.cloudlets) {
+			if(cloudlet.visible) visibleCount++;
+		}
+		if(visibleCount == 0) visibleCount = cloudletCount; // fallback, render all if frustum data is stale
+		ByteBuffer instancedCloudletBuffer = INSTANCED_CLOUDLET_BATCH.begin(visibleCount);
+		for(Cloudlet cloudlet : cloud.cloudlets) {
+			if(!cloudlet.visible) continue;
 			writeCloudletInstance(instancedCloudletBuffer, cloud, cloudlet, partialTicks);
 		}
-
 		bindTexture(cloudlet);
-		INSTANCED_CLOUDLET_BATCH.draw(cloudletCount);
+		INSTANCED_CLOUDLET_BATCH.draw(visibleCount);
 
 		GlStateManager.depthMask(true);
 		GlStateManager.enableAlpha();
@@ -366,14 +379,32 @@ public class RenderTorex extends Render<EntityNukeTorex> {
         double playerY = cameraPos.y;
         double playerZ = cameraPos.z;
 
+        FRUSTUM.setPosition(cameraPos.x, cameraPos.y, cameraPos.z);
+
 		for(Cloudlet cloudlet : cloud.cloudlets) {
 			double dx = playerX - cloudlet.posX;
 			double dy = playerY - cloudlet.posY;
 			double dz = playerZ - cloudlet.posZ;
 			cloudlet.renderSortDistanceSq = dx * dx + dy * dy + dz * dz;
+			// Frustum culling: mark off-screen cloudlets so render path skips them
+			cloudlet.visible = FRUSTUM.isBoundingBoxInFrustum(new AxisAlignedBB(
+					cloudlet.posX - 1, cloudlet.posY - 1, cloudlet.posZ - 1,
+					cloudlet.posX + 1, cloudlet.posY + 1, cloudlet.posZ + 1));
 		}
 
-		cloud.cloudlets.sort(CLOUD_SORTER);
+		// Insertion sort — list is nearly sorted from previous frame (cloudlets move slowly)
+		ArrayList<Cloudlet> list = cloud.cloudlets;
+		int n = list.size();
+		for(int i = 1; i < n; i++) {
+			Cloudlet key = list.get(i);
+			double keyDist = key.renderSortDistanceSq;
+			int j = i - 1;
+			while(j >= 0 && list.get(j).renderSortDistanceSq < keyDist) {
+				list.set(j + 1, list.get(j));
+				j--;
+			}
+			list.set(j + 1, key);
+		}
         cloud.lastRenderSortTick = clientTick;
 	}
 

@@ -1,5 +1,6 @@
 package com.hbm.entity.effect;
 
+import com.hbm.config.BombConfig;
 import com.hbm.interfaces.AutoRegister;
 import com.hbm.interfaces.IConstantRenderer;
 import com.hbm.lib.HBMSoundHandler;
@@ -30,7 +31,7 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 	public static final int firstCondenseHeight = 130;
 	public static final int secondCondenseHeight = 170;
 	public static final int blastWaveHeadstart = 5;
-	public static final int maxCloudlets = 20_000;
+	public static int maxCloudlets = BombConfig.maxCloudlets > 0 ? BombConfig.maxCloudlets : 20_000;
 
 	//Nuke colors
 	public static final double nr1 = 2.5;
@@ -61,6 +62,7 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 
 	public boolean didPlaySound = false;
 	public boolean didShake = false;
+	private int cloudletUpdateStep = 0;
 
 	public EntityNukeTorex(World p_i1582_1_) {
 		super(p_i1582_1_);
@@ -188,12 +190,20 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 			}
 
 			for(int i = cloudlets.size() - 1; i >= 0; i--) {
-				Cloudlet cloud = cloudlets.get(i);
-				if(cloud.isDead) {
+				if(cloudlets.get(i).isDead) {
 					cloudlets.remove(i);
-					continue;
 				}
-				cloud.update();
+			}
+
+			int size = cloudlets.size();
+			int divisor = BombConfig.cloudletUpdateDivisor;
+			if(size > 0 && divisor > 0) {
+				int toUpdate = Math.max(1, (size + divisor - 1) / divisor);
+				if(cloudletUpdateStep >= size) cloudletUpdateStep = 0;
+				for(int i = 0; i < toUpdate; i++) {
+					cloudlets.get((cloudletUpdateStep + i) % size).update();
+				}
+				cloudletUpdateStep = (cloudletUpdateStep + toUpdate) % size;
 			}
 			
 			coreHeight += 0.15/* * s*/;
@@ -317,6 +327,7 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 		public double prevColorG;
 		public double prevColorB;
 		public double renderSortDistanceSq;
+		public boolean visible = true;
 		public TorexType type;
 		public float startingScale = 3F;
 		public float growingScale = 5F;

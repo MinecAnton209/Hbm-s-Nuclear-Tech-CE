@@ -153,7 +153,8 @@ public final class BombForkJoinPool {
     private static int computeWorkers() {
         int processors = Runtime.getRuntime().availableProcessors();
         int workers = BombConfig.maxThreads <= 0 ? Math.max(1, processors + BombConfig.maxThreads) : Math.min(BombConfig.maxThreads, processors);
-        return Math.max(1, workers);
+        int reserved = BombConfig.reserveCores;
+        return Math.max(1, Math.min(workers, processors - reserved));
     }
 
     private static void crashOnWorkerFailure(Thread thread, Throwable error) {
