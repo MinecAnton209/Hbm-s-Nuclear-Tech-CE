@@ -1,6 +1,7 @@
 package com.hbm.particle;
 
 import com.hbm.render.util.NTMImmediate;
+import com.hbm.render.util.NTMBufferBuilder;
 import com.hbm.wiaj.WorldInAJar;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
@@ -18,6 +19,8 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.lwjgl.opengl.GL11;
 
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.util.Random;
 
 public class ParticleDebris extends Particle {
@@ -29,6 +32,10 @@ public class ParticleDebris extends Particle {
     private double prevRotationYaw;
     private double rotationPitch;
     private double rotationYaw;
+
+    private int[] cachedVertexData;
+    private int cachedVertexCount;
+    private boolean geometryValid;
 
     public ParticleDebris(World world, double x, double y, double z, double mX, double mY, double mZ) {
         super(world, x, y, z);
@@ -95,8 +102,6 @@ public class ParticleDebris extends Particle {
         float pY = (float) (this.prevPosY + (this.posY - this.prevPosY) * partialTicks - dY);
         float pZ = (float) (this.prevPosZ + (this.posZ - this.prevPosZ) * partialTicks - dZ);
 
-        BufferBuilder buffer = NTMImmediate.INSTANCE.begin(GL11.GL_QUADS, DefaultVertexFormats.BLOCK);
-
         worldInAJar.lightlevel = world.getCombinedLight(new BlockPos((int) Math.floor(posX), (int) Math.floor(posY), (int) Math.floor(posZ)), 0);
         RenderHelper.disableStandardItemLighting();
         GlStateManager.disableBlend();
@@ -112,27 +117,76 @@ public class ParticleDebris extends Particle {
         Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
         GlStateManager.shadeModel(GL11.GL_SMOOTH);
 
-        for (int x = 0; x < worldInAJar.sizeX; x++) {
-            for (int y = 0; y < worldInAJar.sizeY; y++) {
-                for (int z = 0; z < worldInAJar.sizeZ; z++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    IBlockState state = worldInAJar.getBlockState(pos);
+        if (geometryValid) {
+            if (cachedVertexData != null && cachedVertexCount > 0) {
+                NTMBufferBuilder fastBuffer = NTMImmediate.INSTANCE.beginBlockQuads(cachedVertexCount / 4);
+                fastBuffer.vanilla().addVertexData(cachedVertexData);
+                NTMImmediate.INSTANCE.draw();
+            }
+        } else {
+            buildAndDraw();
+        }
 
-                    try {
-                        renderer.renderBlock(
-                                state, pos, worldInAJar, buffer
-                        );
+        GlStateManager.shadeModel(GL11.GL_FLAT);
+        GlStateManager.popMatrix();
+    }
 
-                    } catch (Exception ignored) {
+    private void buildAndDraw() {
+        int sx = worldInAJar.sizeX;
+        int sy = worldInAJar.sizeY;
+        int sz = worldInAJar.sizeZ;
 
+        boolean[][][] visible = new boolean[sx][sy][sz];
+        for (int x = 0; x < sx; x++) {
+            for (int y = 0; y < sy; y++) {
+                for (int z = 0; z < sz; z++) {
+                    if (worldInAJar.getBlock(x, y, z) == Blocks.AIR) continue;
+                    if (hasVisibleFace(x, y, z, sx, sy, sz)) {
+                        visible[x][y][z] = true;
                     }
                 }
             }
         }
 
+        BufferBuilder buffer = NTMImmediate.INSTANCE.begin(GL11.GL_QUADS, DefaultVertexFormats.BLOCK);
+        for (int x = 0; x < sx; x++) {
+            for (int y = 0; y < sy; y++) {
+                for (int z = 0; z < sz; z++) {
+                    if (!visible[x][y][z]) continue;
+                    BlockPos pos = new BlockPos(x, y, z);
+                    try {
+                        renderer.renderBlock(worldInAJar.getBlockState(pos), pos, worldInAJar, buffer);
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+        }
+
+        cachedVertexCount = buffer.getVertexCount();
+        if (cachedVertexCount > 0) {
+            int strideInts = DefaultVertexFormats.BLOCK.getSize() >> 2;
+            int totalInts = cachedVertexCount * strideInts;
+            ByteBuffer bb = buffer.getByteBuffer();
+            IntBuffer ib = bb.asIntBuffer();
+            ib.limit(totalInts);
+            cachedVertexData = new int[totalInts];
+            ib.get(cachedVertexData);
+        }
+
         NTMImmediate.INSTANCE.draw();
-        GlStateManager.shadeModel(GL11.GL_FLAT);
-        GlStateManager.popMatrix();
+        geometryValid = true;
+    }
+
+    private boolean hasVisibleFace(int x, int y, int z, int sx, int sy, int sz) {
+        return x == 0 || x == sx - 1 ||
+               y == 0 || y == sy - 1 ||
+               z == 0 || z == sz - 1 ||
+               worldInAJar.getBlock(x - 1, y, z) == Blocks.AIR ||
+               worldInAJar.getBlock(x + 1, y, z) == Blocks.AIR ||
+               worldInAJar.getBlock(x, y - 1, z) == Blocks.AIR ||
+               worldInAJar.getBlock(x, y + 1, z) == Blocks.AIR ||
+               worldInAJar.getBlock(x, y, z - 1) == Blocks.AIR ||
+               worldInAJar.getBlock(x, y, z + 1) == Blocks.AIR;
     }
 
 }
