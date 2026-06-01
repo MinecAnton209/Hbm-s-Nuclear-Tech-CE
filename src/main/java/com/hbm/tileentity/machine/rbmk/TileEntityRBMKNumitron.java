@@ -51,7 +51,7 @@ public class TileEntityRBMKNumitron extends TileEntityLoadedBase implements ITic
 
             for (int i = 0; i < 2; i++) this.displays[i].update();
 
-            this.networkPackNT(50);
+            this.networkPackMK2(50);
         }
     }
 
@@ -123,9 +123,13 @@ public class TileEntityRBMKNumitron extends TileEntityLoadedBase implements ITic
                 } catch (Exception ex) {
                 }
                 this.value = sigVal;
+                TileEntityRBMKNumitron.this.dataChanged();
             } else {
                 // if there's no new signal and we're polling, set to 0
-                if (polling) this.value = 0;
+                if (polling) {
+                    this.value = 0;
+                    TileEntityRBMKNumitron.this.dataChanged();
+                }
             }
         }
 
@@ -193,6 +197,7 @@ public class TileEntityRBMKNumitron extends TileEntityLoadedBase implements ITic
             display.label = data.getString("label" + i);
             display.rtty = data.getString("rtty" + i);
         }
+        this.dataChanged();
     }
 
     // OpenComputers methods
@@ -223,6 +228,7 @@ public class TileEntityRBMKNumitron extends TileEntityLoadedBase implements ITic
         if (idx < 0 || idx >= 2) return new Object[]{false, "Invalid index (1-2)"};
         displays[idx].active = args.checkBoolean(1);
         markDirty();
+        this.dataChanged();
         return new Object[]{true};
     }
 
@@ -233,6 +239,7 @@ public class TileEntityRBMKNumitron extends TileEntityLoadedBase implements ITic
         if (idx < 0 || idx >= 2) return new Object[]{false, "Invalid index (1-2)"};
         displays[idx].polling = args.checkBoolean(1);
         markDirty();
+        this.dataChanged();
         return new Object[]{true};
     }
 
@@ -243,6 +250,7 @@ public class TileEntityRBMKNumitron extends TileEntityLoadedBase implements ITic
         if (idx < 0 || idx >= 2) return new Object[]{false, "Invalid index (1-2)"};
         displays[idx].label = args.checkString(1);
         markDirty();
+        this.dataChanged();
         return new Object[]{true};
     }
 
@@ -253,6 +261,7 @@ public class TileEntityRBMKNumitron extends TileEntityLoadedBase implements ITic
         if (idx < 0 || idx >= 2) return new Object[]{false, "Invalid index (1-2)"};
         displays[idx].rtty = args.checkString(1);
         markDirty();
+        this.dataChanged();
         return new Object[]{true};
     }
 
@@ -264,6 +273,7 @@ public class TileEntityRBMKNumitron extends TileEntityLoadedBase implements ITic
         long val = (long) args.checkInteger(1);
         displays[idx].value = val;
         markDirty();
+        this.dataChanged();
         return new Object[]{true};
     }
 }

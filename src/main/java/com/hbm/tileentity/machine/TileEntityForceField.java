@@ -212,7 +212,9 @@ public class TileEntityForceField extends TileEntityLoadedBase implements ITicka
         }
 
         if (isOn && cooldown == 0 && health > 0 && power >= powerCons) {
-            doField(radius);
+            if(world.getTotalWorldTime() % 5 == 0) {
+                doField(radius);
+            }
 
             if (!world.isRemote) {
                 power -= powerCons;
