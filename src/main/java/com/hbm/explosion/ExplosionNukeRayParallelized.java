@@ -174,7 +174,7 @@ public class ExplosionNukeRayParallelized implements IExplosionRay, BombForkJoin
             return;
         }
 
-        rayCount = Math.max(0, (int) (2.5 * Math.PI * strength * strength * RESOLUTION_FACTOR * BombConfig.explosionResolutionFactor));
+        rayCount = Math.max(0, (int) (2.5 * Math.PI * strength * strength * RESOLUTION_FACTOR));
         invRayIndexScale = rayCount > 1 ? 1.0 / (rayCount - 1) : 0.0;
         pendingRays = rayCount;
 

@@ -1,7 +1,6 @@
 package com.hbm.particle;
 
 import com.hbm.render.util.NTMImmediate;
-import com.hbm.render.util.NTMBufferBuilder;
 import com.hbm.wiaj.WorldInAJar;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
@@ -19,8 +18,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.lwjgl.opengl.GL11;
 
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.util.Random;
 
 public class ParticleDebris extends Particle {
@@ -32,10 +29,6 @@ public class ParticleDebris extends Particle {
     private double prevRotationYaw;
     private double rotationPitch;
     private double rotationYaw;
-
-    private int[] cachedVertexData;
-    private int cachedVertexCount;
-    private boolean geometryValid;
 
     public ParticleDebris(World world, double x, double y, double z, double mX, double mY, double mZ) {
         super(world, x, y, z);
@@ -117,15 +110,7 @@ public class ParticleDebris extends Particle {
         Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
         GlStateManager.shadeModel(GL11.GL_SMOOTH);
 
-        if (geometryValid) {
-            if (cachedVertexData != null && cachedVertexCount > 0) {
-                NTMBufferBuilder fastBuffer = NTMImmediate.INSTANCE.beginBlockQuads(cachedVertexCount / 4);
-                fastBuffer.vanilla().addVertexData(cachedVertexData);
-                NTMImmediate.INSTANCE.draw();
-            }
-        } else {
-            buildAndDraw();
-        }
+        buildAndDraw();
 
         GlStateManager.shadeModel(GL11.GL_FLAT);
         GlStateManager.popMatrix();
@@ -162,19 +147,7 @@ public class ParticleDebris extends Particle {
             }
         }
 
-        cachedVertexCount = buffer.getVertexCount();
-        if (cachedVertexCount > 0) {
-            int strideInts = DefaultVertexFormats.BLOCK.getSize() >> 2;
-            int totalInts = cachedVertexCount * strideInts;
-            ByteBuffer bb = buffer.getByteBuffer();
-            IntBuffer ib = bb.asIntBuffer();
-            ib.limit(totalInts);
-            cachedVertexData = new int[totalInts];
-            ib.get(cachedVertexData);
-        }
-
         NTMImmediate.INSTANCE.draw();
-        geometryValid = true;
     }
 
     private boolean hasVisibleFace(int x, int y, int z, int sx, int sy, int sz) {

@@ -130,7 +130,7 @@ public class TileEntityCraneGrabber extends TileEntityCraneBase implements IGUIP
                 }
             }
 
-            networkPackMK2(15);
+            networkPackNT(15);
         }
     }
 

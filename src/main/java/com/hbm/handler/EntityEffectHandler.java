@@ -24,6 +24,7 @@ import com.hbm.main.MainRegistry;
 import com.hbm.packet.toclient.AuxParticlePacketNT;
 import com.hbm.packet.HbmSyncHandler;
 import com.hbm.packet.threading.ThreadedPacket;
+import com.hbm.packet.toclient.HbmPlayerSyncPacket;
 import com.hbm.handler.threading.PacketThreading;
 import com.hbm.particle.helper.FlameCreator;
 import com.hbm.particle.helper.HbmEffectNT;
@@ -107,7 +108,7 @@ public class EntityEffectHandler {
 
 				byte flags = HbmSyncHandler.computeFlags(playerMP);
 				if(flags != 0) {
-					ThreadedPacket pkt = new com.hbm.packet.toclient.HbmPlayerSyncPacket(playerMP, flags);
+					ThreadedPacket pkt = new HbmPlayerSyncPacket(playerMP, flags);
 					PacketThreading.createSendToThreadedPacket(pkt, playerMP);
 				}
 			}

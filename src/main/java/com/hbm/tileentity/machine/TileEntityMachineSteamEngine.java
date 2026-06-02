@@ -22,6 +22,7 @@ import com.hbm.tileentity.IConfigurableMachine;
 import com.hbm.tileentity.IFluidCopiable;
 import com.hbm.tileentity.TileEntityLoadedBase;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
@@ -91,15 +92,22 @@ public class TileEntityMachineSteamEngine extends TileEntityLoadedBase
     writer.name("D:efficiency").value(efficiency);
   }
 
+  ByteBuf buf;
+
   @Override
   public void update() {
 
     if (!world.isRemote) {
 
+      if (this.buf != null) this.buf.release();
+      this.buf = Unpooled.buffer();
+
       this.powerBuffer = 0;
 
       tanks[0].setTankType(Fluids.STEAM);
       tanks[1].setTankType(Fluids.SPENTSTEAM);
+
+      tanks[0].serialize(buf);
 
       FT_Coolable trait = tanks[0].getTankType().getTrait(FT_Coolable.class);
       double eff = trait.getEfficiency(FT_Coolable.CoolingType.TURBINE) * efficiency;
@@ -132,6 +140,10 @@ public class TileEntityMachineSteamEngine extends TileEntityLoadedBase
             0.5F + (acceleration / 80F));
       }
 
+      buf.writeLong(this.powerBuffer);
+      buf.writeFloat(this.rotor);
+      tanks[1].serialize(buf);
+
       for (DirPos dirPos : getConPos()) {
         if (this.powerBuffer > 0)
           this.tryProvide(
@@ -156,7 +168,16 @@ public class TileEntityMachineSteamEngine extends TileEntityLoadedBase
             dirPos.getDir());
       }
 
-      this.networkPackNT(150);
+      NBTTagCompound data = new NBTTagCompound();
+      data.setLong("powerBuffer", powerBuffer);
+      data.setFloat("acceleration", acceleration);
+      tanks[0].writeToNBT(data, "s");
+      tanks[1].writeToNBT(data, "w");
+
+      PacketThreading.createAllAroundThreadedPacket(
+          new BufPacket(pos.getX(), pos.getY(), pos.getZ(), this),
+          new NetworkRegistry.TargetPoint(
+              this.world.provider.getDimension(), pos.getX(), pos.getY(), pos.getZ(), 150));
     } else {
       this.lastRotor = this.rotor;
 
@@ -263,10 +284,7 @@ public class TileEntityMachineSteamEngine extends TileEntityLoadedBase
 
   @Override
   public void serialize(ByteBuf buf) {
-    this.tanks[0].serialize(buf);
-    buf.writeLong(this.powerBuffer);
-    buf.writeFloat(this.rotor);
-    this.tanks[1].serialize(buf);
+    buf.writeBytes(this.buf);
   }
 
   @Override

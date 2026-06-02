@@ -30,6 +30,10 @@ public class HbmSyncHandler {
 
     private static final ConcurrentHashMap<UUID, PlayerSyncState> playerStates = new ConcurrentHashMap<>();
 
+    public static void removePlayer(UUID uuid) {
+        playerStates.remove(uuid);
+    }
+
     private static class PlayerSyncState {
         int contaminationHash;
         int shieldBits;

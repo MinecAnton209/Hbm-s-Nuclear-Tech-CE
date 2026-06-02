@@ -47,6 +47,7 @@ import com.hbm.items.weapon.sedna.factory.XFactory12ga;
 import com.hbm.lib.HBMSoundHandler;
 import com.hbm.lib.Library;
 import com.hbm.lib.ModDamageSource;
+import com.hbm.packet.HbmSyncHandler;
 import com.hbm.packet.PacketDispatcher;
 import com.hbm.packet.PermaSyncHandler;
 import com.hbm.packet.threading.ThreadedPacket;
@@ -533,6 +534,14 @@ public class ModEventHandler {
             if (height != (int) RBMKDials.RBMKKeys.KEY_COLUMN_HEIGHT.defValue) {
                 PacketThreading.createSendToThreadedPacket(new SurveyPacket(height), player);
             }
+            // Sync TOM impact data to joining players — worldTick only broadcasts on hash change,
+            // so a player joining when data is stable would never receive the current state.
+            TomSaveData tomData = TomSaveData.forWorld(world);
+            TomBroadcastPacket.cachedFire = tomData.fire;
+            TomBroadcastPacket.cachedDust = tomData.dust;
+            TomBroadcastPacket.cachedImpact = tomData.impact;
+            TomBroadcastPacket.cachedTime = tomData.time;
+            PacketThreading.createSendToThreadedPacket(new TomBroadcastPacket(), player);
         } else if (entity instanceof EntityLiving living) {
             ItemStack held = living.getHeldItem(EnumHand.MAIN_HAND);
 
@@ -1009,6 +1018,7 @@ public class ModEventHandler {
     public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (!event.player.world.isRemote) {
             HazardSystem.onPlayerLogout(event.player);
+            HbmSyncHandler.removePlayer(event.player.getUniqueID());
         }
     }
 
