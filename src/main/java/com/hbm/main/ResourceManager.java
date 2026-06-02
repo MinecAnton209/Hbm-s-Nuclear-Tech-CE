@@ -269,8 +269,8 @@ public class ResourceManager {
     public static final WaveFrontObjectVAO blast_door_tooth = new HFRWavefrontObject(new ResourceLocation(Tags.MODID, "models/blast_door_tooth.obj")).asVBO();
     public static final WaveFrontObjectVAO blast_door_slider = new HFRWavefrontObject(new ResourceLocation(Tags.MODID, "models/blast_door_slider.obj")).asVBO();
     public static final WaveFrontObjectVAO blast_door_block = new HFRWavefrontObject(new ResourceLocation(Tags.MODID, "models/blast_door_block.obj")).asVBO();
-    //Lights
-    //public static final IModelCustom lantern = new HFRWavefrontObject(new ResourceLocation(Tags.MODID, "models/trinkets/lantern.obj"));
+    //Vending Machine
+    public static final WaveFrontObjectVAO vending_machine = new HFRWavefrontObject(new ResourceLocation(Tags.MODID, "models/machines/vending_machine.obj")).asVBO();
     //Tesla Coil
     public static final WaveFrontObjectVAO tesla = new HFRWavefrontObject(new ResourceLocation(Tags.MODID, "models/tesla.obj")).asVBO();
     public static final WaveFrontObjectVAO teslacrab = new HFRWavefrontObject(new ResourceLocation(Tags.MODID, "models/mobs/teslacrab.obj")).asVBO();
@@ -816,6 +816,8 @@ public class ResourceManager {
     public static final ResourceLocation secure_access_door_tex = new ResourceLocation(Tags.MODID, "textures/models/doors/secure_access_door.png");
     public static final ResourceLocation sliding_seal_door_tex = new ResourceLocation(Tags.MODID, "textures/models/doors/sliding_seal_door.png");
     public static final ResourceLocation sliding_gate_door_tex = new ResourceLocation(Tags.MODID, "textures/models/doors/sliding_gate_door.png");
+
+    public static final ResourceLocation vending_machine_tex = new ResourceLocation(Tags.MODID, "textures/models/machines/vending_machine.png");
 
     //PheoDoors
     public static WaveFrontObjectVAO pheo_fire_door = new HFRWavefrontObject(new ResourceLocation(Tags.MODID, "models/pheodoors/fire_door.obj")).asVBO();
