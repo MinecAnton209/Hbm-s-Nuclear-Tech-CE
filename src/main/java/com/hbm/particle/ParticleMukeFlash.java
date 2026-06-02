@@ -22,11 +22,9 @@ public class ParticleMukeFlash extends Particle {
 
     private static final ResourceLocation TEXTURE = new ResourceLocation(Tags.MODID, "textures/particle/flare.png");
     private final boolean bf;
-    private int spawnPhase = 0;
-
     public ParticleMukeFlash(World world, double x, double y, double z, boolean bf) {
         super(world, x, y, z, 0.0D, 0.0D, 0.0D);
-        this.particleMaxAge = 25;
+        this.particleMaxAge = 20;
         this.particleGravity = 0.0F;
         this.canCollide = false;
         this.particleRed = this.particleGreen = this.particleBlue = 1.0F;
@@ -44,49 +42,33 @@ public class ParticleMukeFlash extends Particle {
     public void onUpdate() {
         super.onUpdate();
 
-        if(this.particleAge < 15 || this.particleAge > 19) return;
-        if(this.spawnPhase >= 5) return;
-
-        int phase = this.spawnPhase;
-        this.spawnPhase++;
-
-        switch(phase) {
-            case 0: {
-                // Stem
-                for(double d = 0.0D; d <= 1.8D; d += 0.1D) {
-                    ParticleMukeCloud cloud = getCloud(world, posX, posY, posZ, rand.nextGaussian() * 0.05, d + rand.nextGaussian() * 0.02, rand.nextGaussian() * 0.05);
-                    Minecraft.getMinecraft().effectRenderer.addEffect(cloud);
-                }
-                break;
+        if (this.particleAge == 15) {
+            // Stem
+            for (double d = 0.0D; d <= 1.8D; d += 0.1D) {
+                ParticleMukeCloud cloud = getCloud(world, posX, posY, posZ, rand.nextGaussian() * 0.05, d + rand.nextGaussian() * 0.02, rand.nextGaussian() * 0.05);
+                Minecraft.getMinecraft().effectRenderer.addEffect(cloud);
             }
-            case 1:
-            case 2: {
-                // Ground (50 per phase, 100 total)
-                for(int i = 0; i < 50; i++) {
-                    ParticleMukeCloud cloud = getCloud(world, posX, posY + 0.5, posZ, rand.nextGaussian() * 0.5, rand.nextInt(5) == 0 ? 0.02 : 0.0, rand.nextGaussian() * 0.5);
-                    Minecraft.getMinecraft().effectRenderer.addEffect(cloud);
-                }
-                break;
+
+            // Ground
+            for (int i = 0; i < 100; i++) {
+                ParticleMukeCloud cloud = getCloud(world, posX, posY + 0.5, posZ, rand.nextGaussian() * 0.5, rand.nextInt(5) == 0 ? 0.02 : 0.0, rand.nextGaussian() * 0.5);
+                Minecraft.getMinecraft().effectRenderer.addEffect(cloud);
             }
-            case 3:
-            case 4: {
-                // Mush (~37 per phase, 75 total)
-                int count = phase == 3 ? 38 : 37;
-                for(int i = 0; i < count; i++) {
-                    double x = rand.nextGaussian() * 0.5;
-                    double z = rand.nextGaussian() * 0.5;
 
-                    if(x * x + z * z > 1.5) {
-                        x *= 0.5;
-                        z *= 0.5;
-                    }
+            // Mush
+            for (int i = 0; i < 75; i++) {
+                double x = rand.nextGaussian() * 0.5;
+                double z = rand.nextGaussian() * 0.5;
 
-                    double y = 1.8 + (rand.nextDouble() * 3.0 - 1.5) * (0.75 - (x * x + z * z)) * 0.5;
-
-                    ParticleMukeCloud cloud = getCloud(world, posX, posY, posZ, x, y + rand.nextGaussian() * 0.02, z);
-                    Minecraft.getMinecraft().effectRenderer.addEffect(cloud);
+                if (x * x + z * z > 1.5) {
+                    x *= 0.5;
+                    z *= 0.5;
                 }
-                break;
+
+                double y = 1.8 + (rand.nextDouble() * 3.0 - 1.5) * (0.75 - (x * x + z * z)) * 0.5;
+
+                ParticleMukeCloud cloud = getCloud(world, posX, posY, posZ, x, y + rand.nextGaussian() * 0.02, z);
+                Minecraft.getMinecraft().effectRenderer.addEffect(cloud);
             }
         }
     }

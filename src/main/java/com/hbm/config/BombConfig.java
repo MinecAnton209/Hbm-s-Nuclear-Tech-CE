@@ -45,7 +45,7 @@ public class BombConfig {
 	public static int maxThreads = -1;
     public static boolean safeCommit = false;
     public static int maxCloudlets = 8_000;
-    public static int cloudletUpdateDivisor = 3;
+    public static int cloudletUpdateDivisor = 1;
     public static double explosionResolutionFactor = 0.75;
     public static int reserveCores = 1;
 	
@@ -189,8 +189,8 @@ public class BombConfig {
         maxCloudletsP.setComment("Max cloudlet particles for mushroom cloud. Lower = better FPS. Default 8000. Set to 0 to use old default (20000).");
         maxCloudlets = maxCloudletsP.getInt();
 
-        Property cloudletUpdateDivisorP = config.get(CommonConfig.CATEGORY_EXPLOSIONS, "6.13_cloudletUpdateDivisor", 3);
-        cloudletUpdateDivisorP.setComment("Update 1/N of cloudlets per tick. 1 = update all, 3 = update 1/3. Higher = less CPU, choppier motion. Default 3.");
+        Property cloudletUpdateDivisorP = config.get(CommonConfig.CATEGORY_EXPLOSIONS, "6.13_cloudletUpdateDivisor", 1);
+        cloudletUpdateDivisorP.setComment("Update 1/N of cloudlets per tick. 1 = update all, 3 = update 1/3. Higher = less CPU, choppier motion. Default 1.");
         cloudletUpdateDivisor = Math.max(1, cloudletUpdateDivisorP.getInt());
 
         Property explosionResolutionFactorP = config.get(CommonConfig.CATEGORY_EXPLOSIONS, "6.14_explosionResolutionFactor", 0.75);

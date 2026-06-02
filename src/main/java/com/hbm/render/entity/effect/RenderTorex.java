@@ -165,6 +165,11 @@ public class RenderTorex extends Render<EntityNukeTorex> {
 	public void doRender(EntityNukeTorex cloud, double x, double y, double z, float entityYaw, float partialTicks){
         if (!ClientProxy.renderingConstant) return;
 
+        // Sort + frustum cull BEFORE touching GL state (pushMatrix/translate),
+        // otherwise FRUSTUM.setPosition() reads the translated modelview matrix
+        // and culls all cloudlets in wrong coordinate space
+        sortCloudlets(cloud, partialTicks);
+
         Minecraft mc = Minecraft.getMinecraft();
         boolean useInstancedCloudlets = GeneralConfig.instancedParticles && !ShaderHelper.areShadersActive();
         float scale = (float)cloud.getScale();
@@ -345,7 +350,15 @@ public class RenderTorex extends Render<EntityNukeTorex> {
 		for(Cloudlet cloudlet : cloud.cloudlets) {
 			if(cloudlet.visible) visibleCount++;
 		}
-		if(visibleCount == 0) visibleCount = cloudletCount; // fallback, render all if frustum data is stale
+		if(visibleCount == 0) {
+			GlStateManager.depthMask(true);
+			GlStateManager.enableAlpha();
+			RenderHelper.enableStandardItemLighting();
+			GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
+			GlStateManager.disableBlend();
+			GlStateManager.popMatrix();
+			return;
+		}
 		ByteBuffer instancedCloudletBuffer = INSTANCED_CLOUDLET_BATCH.begin(visibleCount);
 		for(Cloudlet cloudlet : cloud.cloudlets) {
 			if(!cloudlet.visible) continue;

@@ -198,12 +198,23 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 			int size = cloudlets.size();
 			int divisor = BombConfig.cloudletUpdateDivisor;
 			if(size > 0 && divisor > 0) {
-				int toUpdate = Math.max(1, (size + divisor - 1) / divisor);
+				int toCompute = divisor > 1 ? Math.max(1, (size + divisor - 1) / divisor) : size;
 				if(cloudletUpdateStep >= size) cloudletUpdateStep = 0;
-				for(int i = 0; i < toUpdate; i++) {
-					cloudlets.get((cloudletUpdateStep + i) % size).update();
+				for(int i = 0; i < size; i++) {
+					boolean recomputeForces = divisor <= 1;
+					if(!recomputeForces) {
+						int end = cloudletUpdateStep + toCompute;
+						if(end <= size) {
+							recomputeForces = i >= cloudletUpdateStep && i < end;
+						} else {
+							recomputeForces = i >= cloudletUpdateStep || i < end - size;
+						}
+					}
+					cloudlets.get(i).update(recomputeForces);
 				}
-				cloudletUpdateStep = (cloudletUpdateStep + toUpdate) % size;
+				if(divisor > 1) {
+					cloudletUpdateStep = (cloudletUpdateStep + toCompute) % size;
+				}
 			}
 			
 			coreHeight += 0.15/* * s*/;
@@ -359,9 +370,10 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 		private double motionRingMult = 0.5F;
 		private double motionCondensationMult = 1F;
 		private double motionShockwaveMult = 1F;
+		private boolean forcesComputed = false;
 		
 		
-		private void update() {
+		private void update(boolean recomputeForces) {
 			age++;
 			
 			if(age > cloudletLife) {
@@ -371,38 +383,42 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 			this.prevPosX = this.posX;
 			this.prevPosY = this.posY;
 			this.prevPosZ = this.posZ;
-			
-			double simDeltaX = EntityNukeTorex.this.posX - this.posX;
-			double simDeltaZ = EntityNukeTorex.this.posZ - this.posZ;
-			double simPosX = EntityNukeTorex.this.posX + Math.sqrt(simDeltaX * simDeltaX + simDeltaZ * simDeltaZ);
-			
-			if(this.type == TorexType.STANDARD) {
-				getConvectionMotion(simPosX);
-				double convectionX = this.computedMotionX;
-				double convectionY = this.computedMotionY;
-				double convectionZ = this.computedMotionZ;
-				getLiftMotion(simPosX);
+
+			if(recomputeForces || !forcesComputed) {
+				forcesComputed = true;
+
+				double simDeltaX = EntityNukeTorex.this.posX - this.posX;
+				double simDeltaZ = EntityNukeTorex.this.posZ - this.posZ;
+				double simPosX = EntityNukeTorex.this.posX + Math.sqrt(simDeltaX * simDeltaX + simDeltaZ * simDeltaZ);
 				
-				double factor = MathHelper.clamp((this.posY - EntityNukeTorex.this.posY) / EntityNukeTorex.this.coreHeight, 0, 1);
-				double inverseFactor = 1D - factor;
-				this.motionX = convectionX * factor + this.computedMotionX * inverseFactor;
-				this.motionY = convectionY * factor + this.computedMotionY * inverseFactor;
-				this.motionZ = convectionZ * factor + this.computedMotionZ * inverseFactor;
-			} else if(this.type == TorexType.RING) {
-				getRingMotion(simPosX);
-				this.motionX = this.computedMotionX;
-				this.motionY = this.computedMotionY;
-				this.motionZ = this.computedMotionZ;
-			} else if(this.type == TorexType.CONDENSATION) {
-				getCondensationMotion();
-				this.motionX = this.computedMotionX;
-				this.motionY = this.computedMotionY;
-				this.motionZ = this.computedMotionZ;
-			} else if(this.type == TorexType.SHOCK) {
-				getShockwaveMotion();
-				this.motionX = this.computedMotionX;
-				this.motionY = this.computedMotionY;
-				this.motionZ = this.computedMotionZ;
+				if(this.type == TorexType.STANDARD) {
+					getConvectionMotion(simPosX);
+					double convectionX = this.computedMotionX;
+					double convectionY = this.computedMotionY;
+					double convectionZ = this.computedMotionZ;
+					getLiftMotion(simPosX);
+					
+					double factor = MathHelper.clamp((this.posY - EntityNukeTorex.this.posY) / EntityNukeTorex.this.coreHeight, 0, 1);
+					double inverseFactor = 1D - factor;
+					this.motionX = convectionX * factor + this.computedMotionX * inverseFactor;
+					this.motionY = convectionY * factor + this.computedMotionY * inverseFactor;
+					this.motionZ = convectionZ * factor + this.computedMotionZ * inverseFactor;
+				} else if(this.type == TorexType.RING) {
+					getRingMotion(simPosX);
+					this.motionX = this.computedMotionX;
+					this.motionY = this.computedMotionY;
+					this.motionZ = this.computedMotionZ;
+				} else if(this.type == TorexType.CONDENSATION) {
+					getCondensationMotion();
+					this.motionX = this.computedMotionX;
+					this.motionY = this.computedMotionY;
+					this.motionZ = this.computedMotionZ;
+				} else if(this.type == TorexType.SHOCK) {
+					getShockwaveMotion();
+					this.motionX = this.computedMotionX;
+					this.motionY = this.computedMotionY;
+					this.motionZ = this.computedMotionZ;
+				}
 			}
 			
 			double mult = this.motionMult * getSimulationSpeed();
