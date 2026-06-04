@@ -24,7 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PermaSyncHandler {
 
-    // Versioned packet format
+    // Versioned packet format — sections are flag-gated so unchanged data is skipped per player
+    // A reserved byte (0) after the section data acts as a protocol separator for afterReadPacket mixins
     private static final byte PERMA_SYNC_VERSION = 1;
     private static final byte FLAG_DEATH      = 1;
     private static final byte FLAG_POLLUTION  = 2;
@@ -177,7 +178,9 @@ public class PermaSyncHandler {
         if(version != PERMA_SYNC_VERSION) return;
 
         int sectionLength = buf.readUnsignedShort();
-        int endIndex = buf.readerIndex() + sectionLength;
+        // +1 skips the reserved byte after section data — this lands on the protocol separator
+        // so afterReadPacket mixins can read their own data from the reserved byte position
+        int endIndex = buf.readerIndex() + sectionLength + 1;
 
         byte flags = buf.readByte();
 

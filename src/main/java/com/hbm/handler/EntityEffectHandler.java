@@ -106,6 +106,7 @@ public class EntityEffectHandler {
 				if(cap.getShield() > cap.getEffectiveMaxShield(playerMP))
 					cap.setShield(cap.getEffectiveMaxShield(playerMP));
 
+				// Dirty-gated sync: only sends sections that changed since last tick — saves bandwidth vs full-sync every tick
 				byte flags = HbmSyncHandler.computeFlags(playerMP);
 				if(flags != 0) {
 					ThreadedPacket pkt = new HbmPlayerSyncPacket(playerMP, flags);

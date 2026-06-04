@@ -130,7 +130,7 @@ public class TileEntityCraneGrabber extends TileEntityCraneBase implements IGUIP
                 }
             }
 
-            networkPackNT(15);
+            networkPackNT(15); // per-tick sync — hash-dedup avoids unnecessary sends
         }
     }
 

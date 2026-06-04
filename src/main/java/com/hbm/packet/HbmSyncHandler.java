@@ -28,6 +28,7 @@ public class HbmSyncHandler {
     public static final byte FLAG_TOGGLES       = 32;
     public static final byte FLAG_REPUTATION    = 64;
 
+    // playerStates keeps per-player hashes to compute dirty flags — cleaned up on logout to avoid leaks
     private static final ConcurrentHashMap<UUID, PlayerSyncState> playerStates = new ConcurrentHashMap<>();
 
     public static void removePlayer(UUID uuid) {

@@ -181,6 +181,9 @@ public class BombConfig {
         safeCommitP.setComment("Prefer safety over performance(~30% slower). Affects algorithm 1, 2, and fallout rain effect.");
         safeCommit = safeCommitP.getBoolean();
 
-
+        // maxCloudlets, cloudletUpdateDivisor, explosionResolutionFactor, and reserveCores were removed:
+        //   - overlap with existing mechanisms (maxThreads, compile-time constants)
+        //   - negligible CPU gain vs desync risk
+        //   - maxCloudlets is now a simple static in EntityNukeTorex (not configurable)
 	}
 }

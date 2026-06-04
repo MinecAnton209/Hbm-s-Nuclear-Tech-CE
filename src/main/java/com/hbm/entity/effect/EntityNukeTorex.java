@@ -61,7 +61,7 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 
 	public boolean didPlaySound = false;
 	public boolean didShake = false;
-	private int cloudletUpdateStep = 0;
+	private int cloudletUpdateStep = 0; // round-robin index when divisor > 1
 
 	public EntityNukeTorex(World p_i1582_1_) {
 		super(p_i1582_1_);
@@ -194,6 +194,7 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 				}
 			}
 
+			// divisor controls round-robin force recompute — default 1 means all cloudlets recompute every tick
 			int size = cloudlets.size();
 			int divisor = 1;
 			if(size > 0) {
@@ -366,7 +367,7 @@ public class EntityNukeTorex extends Entity implements IConstantRenderer {
 		private double motionRingMult = 0.5F;
 		private double motionCondensationMult = 1F;
 		private double motionShockwaveMult = 1F;
-		private boolean forcesComputed = false;
+		private boolean forcesComputed = false; // true after first force calc, stays true if recomputeForces=false
 		
 		
 		private void update(boolean recomputeForces) {

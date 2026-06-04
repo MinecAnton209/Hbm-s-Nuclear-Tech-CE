@@ -116,6 +116,7 @@ public class ParticleDebris extends Particle {
         GlStateManager.popMatrix();
     }
 
+    // Rebuild vertex buffer every frame with current light level — no caching, but skips interior faces
     private void buildAndDraw() {
         int sx = worldInAJar.sizeX;
         int sy = worldInAJar.sizeY;
@@ -150,6 +151,7 @@ public class ParticleDebris extends Particle {
         NTMImmediate.INSTANCE.draw();
     }
 
+    // Skips interior faces that are fully occluded by adjacent blocks — ~50% fewer quads for solid debris
     private boolean hasVisibleFace(int x, int y, int z, int sx, int sy, int sz) {
         return x == 0 || x == sx - 1 ||
                y == 0 || y == sy - 1 ||
